@@ -18,7 +18,7 @@ from storage import (
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-HARDCODED_REPLY = "Напиши що з'їв, і я порахую калорії! Наприклад: «200г курки, тарілка рису і яблуко»"
+HARDCODED_REPLY = "Я розумію лише їжу 🍽 Напиши що з'їв, наприклад: «200г курки, тарілка рису і яблуко»"
 
 FOOD_KEYWORDS = {
     "г", "гр", "мл", "л", "кг", "шт", "ккал", "калор",

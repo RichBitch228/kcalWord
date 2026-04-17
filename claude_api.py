@@ -26,4 +26,9 @@ def parse_food(text: str) -> dict:
         messages=[{"role": "user", "content": text}],
     )
     raw = message.content[0].text.strip()
-    return json.loads(raw)
+    # strip markdown code blocks if present
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    return json.loads(raw.strip())

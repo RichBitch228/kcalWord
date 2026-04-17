@@ -17,10 +17,15 @@ def _get_sheet():
     client = gspread.authorize(creds)
     sh = client.open_by_key(SPREADSHEET_ID)
     try:
-        return sh.worksheet("log")
+        ws = sh.worksheet("log")
+        # fix incomplete headers if needed
+        existing = ws.row_values(1)
+        if existing != HEADERS:
+            ws.update([HEADERS], "A1:G1")
+        return ws
     except gspread.WorksheetNotFound:
         ws = sh.add_worksheet(title="log", rows=5000, cols=7)
-        ws.append_row(HEADERS)
+        ws.update([HEADERS], "A1:G1")
         return ws
 
 

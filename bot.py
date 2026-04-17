@@ -6,6 +6,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 from telegram.request import HTTPXRequest
 
 from claude_api import parse_food
+from export import generate_word
 from storage import (
     add_entry, get_day, get_week, get_month, get_year,
     reset_today, format_entry, format_period_summary, today_key
@@ -31,7 +32,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/month 03.2026 — конкретний місяць\n"
         "/year — поточний рік\n"
         "/year 2025 — конкретний рік\n"
-        "/reset — скинути сьогоднішній запис"
+        "/reset — скинути сьогоднішній запис\n"
+        "/export — завантажити Word файл з усім логом\n"
+        "/export month — за поточний місяць\n"
+        "/export year — за поточний рік"
     )
 
 
@@ -93,6 +97,29 @@ async def cmd_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(format_period_summary(label, entries))
 
 
+async def cmd_export(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    arg = context.args[0].lower() if context.args else "all"
+    user = uid(update)
+    if arg == "month":
+        entries = get_month(user)
+        label = "місяць"
+    elif arg == "year":
+        entries = get_year(user)
+        label = "рік"
+    else:
+        entries = get_year(user)  # all = current year
+        label = "рік"
+    if not entries:
+        await update.message.reply_text("Нема даних для експорту.")
+        return
+    buf = generate_word(entries)
+    await update.message.reply_document(
+        document=buf,
+        filename=f"kcal_{label}.docx",
+        caption=f"📄 Лог за {label} — {len(entries)} дн."
+    )
+
+
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reset_today(uid(update))
     await update.message.reply_text(f"🗑 Запис за {today_key()} видалено.")
@@ -108,6 +135,7 @@ def main():
     app.add_handler(CommandHandler("week", cmd_week))
     app.add_handler(CommandHandler("month", cmd_month))
     app.add_handler(CommandHandler("year", cmd_year))
+    app.add_handler(CommandHandler("export", cmd_export))
     app.add_handler(CommandHandler("reset", cmd_reset))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_food))
     logging.info("Bot started")

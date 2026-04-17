@@ -1,7 +1,7 @@
 import os
 import logging
 from dotenv import load_dotenv
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, MenuButtonCommands
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, MenuButtonCommands, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     CallbackQueryHandler, filters, ContextTypes
@@ -44,6 +44,14 @@ def uid(update: Update) -> int:
 
 # ── keyboards ──────────────────────────────────────────────
 
+def persistent_kb():
+    return ReplyKeyboardMarkup(
+        [[KeyboardButton("📋 Меню")]],
+        resize_keyboard=True,
+        input_field_placeholder="Напиши що з'їв..."
+    )
+
+
 def main_menu_kb():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📊 Статистика", callback_data="menu_stats")],
@@ -82,8 +90,8 @@ def other_menu_kb():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Привіт! Просто напиши що з'їв, наприклад:\n«200г курки, тарілка рису і яблуко»\n\nАбо обери дію:",
-        reply_markup=main_menu_kb()
+        "Привіт! Просто напиши що з'їв, наприклад:\n«200г курки, тарілка рису і яблуко»",
+        reply_markup=persistent_kb()
     )
 
 
@@ -93,6 +101,9 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
+    if text == "📋 Меню":
+        await update.message.reply_text("Обери дію:", reply_markup=main_menu_kb())
+        return
     if not _looks_like_food(text):
         await update.message.reply_text(HARDCODED_REPLY)
         return

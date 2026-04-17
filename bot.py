@@ -33,7 +33,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/year — поточний рік\n"
         "/year 2025 — конкретний рік\n"
         "/reset — скинути сьогоднішній запис\n"
-        "/export — завантажити Word файл з усім логом\n"
+        "/export — Word файл за поточний рік\n"
+        "/export week — за останні 7 днів\n"
         "/export month — за поточний місяць\n"
         "/export year — за поточний рік"
     )
@@ -98,16 +99,16 @@ async def cmd_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_export(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    arg = context.args[0].lower() if context.args else "all"
+    arg = context.args[0].lower() if context.args else "year"
     user = uid(update)
     if arg == "month":
         entries = get_month(user)
         label = "місяць"
-    elif arg == "year":
-        entries = get_year(user)
-        label = "рік"
+    elif arg == "week":
+        entries = get_week(user)
+        label = "тиждень"
     else:
-        entries = get_year(user)  # all = current year
+        entries = get_year(user)
         label = "рік"
     if not entries:
         await update.message.reply_text("Нема даних для експорту.")

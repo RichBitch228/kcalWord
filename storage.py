@@ -1,105 +1,128 @@
-import json
 import os
+import json
 from datetime import datetime, timedelta
 
-LOG_FILE = os.environ.get("LOG_FILE", "log.json")
+import gspread
+from google.oauth2.service_account import Credentials
+
+SPREADSHEET_ID = os.environ["SPREADSHEET_ID"]
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+HEADERS = ["date", "kcal", "protein", "fat", "carbs", "foods"]
 
 
-def _load() -> dict:
-    if not os.path.exists(LOG_FILE):
-        return {}
-    with open(LOG_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def _save(data: dict):
-    with open(LOG_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+def _get_sheet():
+    raw = os.environ["GOOGLE_CREDENTIALS"]
+    info = json.loads(raw)
+    creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+    client = gspread.authorize(creds)
+    sh = client.open_by_key(SPREADSHEET_ID)
+    try:
+        return sh.worksheet("log")
+    except gspread.WorksheetNotFound:
+        ws = sh.add_worksheet(title="log", rows=1000, cols=6)
+        ws.append_row(HEADERS)
+        return ws
 
 
 def today_key() -> str:
     return datetime.now().strftime("%d.%m.%Y")
 
 
+def _find_row(ws, date_key: str):
+    col = ws.col_values(1)
+    for i, val in enumerate(col):
+        if val == date_key:
+            return i + 1  # 1-indexed
+    return None
+
+
 def add_entry(parsed: dict):
-    data = _load()
+    ws = _get_sheet()
     key = today_key()
-    if key not in data:
-        data[key] = {"kcal": 0, "protein": 0, "fat": 0, "carbs": 0, "foods": []}
-    entry = data[key]
-    entry["kcal"] += parsed.get("kcal", 0)
-    entry["protein"] += parsed.get("protein", 0)
-    entry["fat"] += parsed.get("fat", 0)
-    entry["carbs"] += parsed.get("carbs", 0)
-    entry["foods"].extend(parsed.get("foods", []))
-    _save(data)
-    return entry
+    row_idx = _find_row(ws, key)
+    if row_idx:
+        row = ws.row_values(row_idx)
+        kcal    = int(row[1] or 0) + parsed.get("kcal", 0)
+        protein = int(row[2] or 0) + parsed.get("protein", 0)
+        fat     = int(row[3] or 0) + parsed.get("fat", 0)
+        carbs   = int(row[4] or 0) + parsed.get("carbs", 0)
+        foods   = (row[5] + ", " if row[5] else "") + ", ".join(parsed.get("foods", []))
+        ws.update(f"A{row_idx}:F{row_idx}", [[key, kcal, protein, fat, carbs, foods]])
+    else:
+        kcal    = parsed.get("kcal", 0)
+        protein = parsed.get("protein", 0)
+        fat     = parsed.get("fat", 0)
+        carbs   = parsed.get("carbs", 0)
+        foods   = ", ".join(parsed.get("foods", []))
+        ws.append_row([key, kcal, protein, fat, carbs, foods])
+    return {"kcal": kcal, "protein": protein, "fat": fat, "carbs": carbs, "foods": foods.split(", ")}
 
 
 def get_day(date_key: str) -> dict | None:
-    data = _load()
-    # support both dd.mm and dd.mm.yyyy
-    if date_key in data:
-        return data[date_key]
-    year = datetime.now().strftime("%Y")
-    return data.get(f"{date_key}.{year}")
+    ws = _get_sheet()
+    # support dd.mm → add current year
+    if date_key.count(".") == 1:
+        date_key += "." + datetime.now().strftime("%Y")
+    row_idx = _find_row(ws, date_key)
+    if not row_idx:
+        return None
+    row = ws.row_values(row_idx)
+    return {
+        "kcal": int(row[1] or 0), "protein": int(row[2] or 0),
+        "fat": int(row[3] or 0), "carbs": int(row[4] or 0),
+        "foods": [f for f in row[5].split(", ") if f] if len(row) > 5 else [],
+    }
 
 
 def reset_today():
-    data = _load()
-    key = today_key()
-    if key in data:
-        del data[key]
-        _save(data)
+    ws = _get_sheet()
+    row_idx = _find_row(ws, today_key())
+    if row_idx:
+        ws.delete_rows(row_idx)
+
+
+def _all_rows_for(filter_fn) -> list[tuple[str, dict]]:
+    ws = _get_sheet()
+    rows = ws.get_all_values()
+    result = []
+    for row in rows[1:]:  # skip header
+        if not row or not row[0] or not filter_fn(row[0]):
+            continue
+        result.append((row[0], {
+            "kcal": int(row[1] or 0), "protein": int(row[2] or 0),
+            "fat": int(row[3] or 0), "carbs": int(row[4] or 0),
+            "foods": [f for f in row[5].split(", ") if f] if len(row) > 5 else [],
+        }))
+    return sorted(result, key=lambda x: datetime.strptime(x[0], "%d.%m.%Y"))
 
 
 def get_week() -> list[tuple[str, dict]]:
-    data = _load()
-    result = []
-    for i in range(6, -1, -1):
-        day = (datetime.now() - timedelta(days=i)).strftime("%d.%m.%Y")
-        if day in data:
-            result.append((day, data[day]))
-    return result
+    keys = {(datetime.now() - timedelta(days=i)).strftime("%d.%m.%Y") for i in range(7)}
+    return _all_rows_for(lambda d: d in keys)
 
 
 def get_month(month_str: str | None = None) -> list[tuple[str, dict]]:
-    """month_str format: 'mm.yyyy' or None for current month"""
-    data = _load()
-    if month_str is None:
+    if not month_str:
         month_str = datetime.now().strftime("%m.%Y")
-    result = []
-    for key, entry in sorted(data.items()):
-        # key is dd.mm.yyyy
-        parts = key.split(".")
-        if len(parts) == 3 and f"{parts[1]}.{parts[2]}" == month_str:
-            result.append((key, entry))
-    return result
+    mm, yyyy = month_str.split(".")
+    return _all_rows_for(lambda d: len(d.split(".")) == 3 and d.split(".")[1] == mm and d.split(".")[2] == yyyy)
 
 
 def get_year(year_str: str | None = None) -> list[tuple[str, dict]]:
-    """year_str format: 'yyyy' or None for current year"""
-    data = _load()
-    if year_str is None:
+    if not year_str:
         year_str = datetime.now().strftime("%Y")
-    result = []
-    for key, entry in sorted(data.items()):
-        parts = key.split(".")
-        if len(parts) == 3 and parts[2] == year_str:
-            result.append((key, entry))
-    return result
+    return _all_rows_for(lambda d: len(d.split(".")) == 3 and d.split(".")[2] == year_str)
 
 
-def _aggregate(entries: list[tuple[str, dict]]) -> dict:
+def _aggregate(entries):
     total = {"kcal": 0, "protein": 0, "fat": 0, "carbs": 0}
     for _, e in entries:
-        for field in total:
-            total[field] += e.get(field, 0)
+        for f in total:
+            total[f] += e.get(f, 0)
     return total
 
 
 def format_entry(date_key: str, entry: dict) -> str:
-    # show only dd.mm in display
     display = ".".join(date_key.split(".")[:2])
     foods = ", ".join(entry["foods"]) if entry["foods"] else "—"
     return (

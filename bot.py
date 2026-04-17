@@ -39,8 +39,8 @@ async def handle_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
         entry = add_entry(parsed)
         await update.message.reply_text("✅ Додано!\n\n" + format_entry(today_key(), entry))
     except Exception as e:
-        logging.error(e)
-        await update.message.reply_text("❌ Не вдалось розпарсити. Спробуй ще раз або уточни список продуктів.")
+        logging.error(f"Error processing food: {type(e).__name__}: {e}", exc_info=True)
+        await update.message.reply_text(f"❌ Помилка: {type(e).__name__}: {e}")
 
 
 async def cmd_today(update: Update, context: ContextTypes.DEFAULT_TYPE):

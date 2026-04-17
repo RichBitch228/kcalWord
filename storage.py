@@ -47,7 +47,7 @@ def add_entry(parsed: dict):
         fat     = int(row[3] or 0) + parsed.get("fat", 0)
         carbs   = int(row[4] or 0) + parsed.get("carbs", 0)
         foods   = (row[5] + ", " if row[5] else "") + ", ".join(parsed.get("foods", []))
-        ws.update(f"A{row_idx}:F{row_idx}", [[key, kcal, protein, fat, carbs, foods]])
+        ws.update([[key, kcal, protein, fat, carbs, foods]], f"A{row_idx}:F{row_idx}")
     else:
         kcal    = parsed.get("kcal", 0)
         protein = parsed.get("protein", 0)

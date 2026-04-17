@@ -40,6 +40,9 @@ async def handle_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("⏳ Рахую...")
     try:
         parsed = parse_food(text)
+        if not parsed.get("is_food"):
+            await update.message.reply_text(parsed.get("reply", "Напиши що з'їв, і я порахую калорії!"))
+            return
         entry = add_entry(uid(update), parsed)
         await update.message.reply_text("✅ Додано!\n\n" + format_entry(today_key(), entry))
     except Exception as e:

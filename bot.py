@@ -16,6 +16,26 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 
+HARDCODED_REPLY = "Напиши що з'їв, і я порахую калорії! Наприклад: «200г курки, тарілка рису і яблуко»"
+
+FOOD_KEYWORDS = {
+    "г", "гр", "мл", "л", "кг", "шт", "ккал", "калор",
+    "їв", "їла", "з'їв", "з'їла", "випив", "випила", "снідав", "обідав", "вечеряв",
+    "сніданок", "обід", "вечеря", "перекус",
+    "курка", "м'ясо", "риба", "яйце", "хліб", "каша", "суп", "салат",
+    "молоко", "кефір", "йогурт", "сир", "масло", "олія",
+    "рис", "гречка", "макарон", "картопл", "овоч", "фрукт", "яблук",
+    "банан", "апельсин", "шоколад", "цукор", "кава", "чай",
+}
+
+
+def _looks_like_food(text: str) -> bool:
+    lower = text.lower()
+    if any(char.isdigit() for char in text):
+        return True
+    return any(kw in lower for kw in FOOD_KEYWORDS)
+
+
 def uid(update: Update) -> int:
     return update.effective_user.id
 
@@ -43,11 +63,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     await update.message.reply_text("⏳ Рахую...")
+    if not _looks_like_food(text):
+        await update.message.reply_text(HARDCODED_REPLY)
+        return
     try:
         parsed = parse_food(text)
-        if not parsed.get("is_food"):
-            await update.message.reply_text(parsed.get("reply", "Напиши що з'їв, і я порахую калорії!"))
-            return
         entry = add_entry(uid(update), parsed)
         await update.message.reply_text("✅ Додано!\n\n" + format_entry(today_key(), entry))
     except Exception as e:

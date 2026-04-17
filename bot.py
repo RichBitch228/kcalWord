@@ -1,7 +1,7 @@
 import os
 import logging
 from dotenv import load_dotenv
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, MenuButtonCommands
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     CallbackQueryHandler, filters, ContextTypes
@@ -168,10 +168,25 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(f"🗑 Запис за {today_key()} видалено.", reply_markup=other_menu_kb())
 
 
+async def post_init(app):
+    commands = [
+        BotCommand("start", "Головне меню"),
+        BotCommand("menu", "Відкрити меню"),
+        BotCommand("today", "Підсумок за сьогодні"),
+        BotCommand("week", "Останні 7 днів"),
+        BotCommand("month", "Поточний місяць"),
+        BotCommand("year", "Поточний рік"),
+        BotCommand("export", "Експорт в Word"),
+        BotCommand("reset", "Скинути сьогоднішній запис"),
+    ]
+    await app.bot.set_my_commands(commands)
+    await app.bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+
+
 def main():
     token = os.environ["TELEGRAM_TOKEN"]
     request = HTTPXRequest(connect_timeout=30, read_timeout=30)
-    app = ApplicationBuilder().token(token).request(request).build()
+    app = ApplicationBuilder().token(token).request(request).post_init(post_init).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", menu_command))
     app.add_handler(CallbackQueryHandler(handle_callback))

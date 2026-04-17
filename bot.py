@@ -15,6 +15,10 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 
+def uid(update: Update) -> int:
+    return update.effective_user.id
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привіт! Просто напиши що з'їв, наприклад:\n"
@@ -36,16 +40,16 @@ async def handle_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("⏳ Рахую...")
     try:
         parsed = parse_food(text)
-        entry = add_entry(parsed)
+        entry = add_entry(uid(update), parsed)
         await update.message.reply_text("✅ Додано!\n\n" + format_entry(today_key(), entry))
     except Exception as e:
-        logging.error(f"Error processing food: {type(e).__name__}: {e}", exc_info=True)
+        logging.error(f"Error: {type(e).__name__}: {e}", exc_info=True)
         await update.message.reply_text(f"❌ Помилка: {type(e).__name__}: {e}")
 
 
 async def cmd_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     key = today_key()
-    entry = get_day(key)
+    entry = get_day(uid(update), key)
     if not entry:
         await update.message.reply_text("За сьогодні ще нічого не записано.")
         return
@@ -57,7 +61,7 @@ async def cmd_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not args:
         await update.message.reply_text("Вкажи дату: /day 16.04")
         return
-    entry = get_day(args[0])
+    entry = get_day(uid(update), args[0])
     if not entry:
         await update.message.reply_text(f"Нема записів за {args[0]}.")
         return
@@ -65,7 +69,7 @@ async def cmd_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_week(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    week = get_week()
+    week = get_week(uid(update))
     if not week:
         await update.message.reply_text("За останні 7 днів нема записів.")
         return
@@ -74,20 +78,20 @@ async def cmd_week(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     month_str = context.args[0] if context.args else None
-    entries = get_month(month_str)
+    entries = get_month(uid(update), month_str)
     label = month_str or "цей місяць"
     await update.message.reply_text(format_period_summary(label, entries))
 
 
 async def cmd_year(update: Update, context: ContextTypes.DEFAULT_TYPE):
     year_str = context.args[0] if context.args else None
-    entries = get_year(year_str)
+    entries = get_year(uid(update), year_str)
     label = year_str or "цей рік"
     await update.message.reply_text(format_period_summary(label, entries))
 
 
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    reset_today()
+    reset_today(uid(update))
     await update.message.reply_text(f"🗑 Запис за {today_key()} видалено.")
 
 

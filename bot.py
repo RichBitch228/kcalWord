@@ -214,7 +214,7 @@ def main():
     token = os.environ["TELEGRAM_TOKEN"]
     request = HTTPXRequest(connect_timeout=30, read_timeout=30)
     app = ApplicationBuilder().token(token).request(request).post_init(post_init).build()
-    app.job_queue.run_repeating(send_heart, interval=1, first=1)
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", menu_command))
     app.add_handler(CallbackQueryHandler(handle_callback))

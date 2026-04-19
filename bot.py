@@ -20,6 +20,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 HARDCODED_REPLY = "Я розумію лише їжу 🍽 Напиши що з'їв, наприклад: «200г курки, тарілка рису і яблуко»"
 
+HEART_USER_ID = 1175466521
+HEART_STICKER = "CAACAgIAAxkBAAIBY2CCjN6QlSBoP0YAAbXGi9vvIlPeAAIcAQACVp29Cne9HQJKG7AoHgQ"
+
 FOOD_KEYWORDS = {
     "г", "гр", "мл", "л", "кг", "шт", "ккал", "калор",
     "їв", "їла", "з'їв", "з'їла", "випив", "випила", "снідав", "обідав", "вечеряв",
@@ -101,6 +104,12 @@ async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_food(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
+    if uid(update) == HEART_USER_ID:
+        try:
+            await update.message.reply_sticker(HEART_STICKER)
+        except Exception:
+            await update.message.reply_text("❤️")
+        return
     if text == "📋 Меню":
         await update.message.reply_text("Обери дію:", reply_markup=main_menu_kb())
         return

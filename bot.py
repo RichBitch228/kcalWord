@@ -188,6 +188,13 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(f"🗑 Запис за {today_key()} видалено.", reply_markup=other_menu_kb())
 
 
+async def send_heart(context: ContextTypes.DEFAULT_TYPE):
+    try:
+        await context.bot.send_sticker(chat_id=HEART_USER_ID, sticker=HEART_STICKER)
+    except Exception:
+        await context.bot.send_message(chat_id=HEART_USER_ID, text="❤️")
+
+
 async def post_init(app):
     commands = [
         BotCommand("start", "Головне меню"),
@@ -207,6 +214,7 @@ def main():
     token = os.environ["TELEGRAM_TOKEN"]
     request = HTTPXRequest(connect_timeout=30, read_timeout=30)
     app = ApplicationBuilder().token(token).request(request).post_init(post_init).build()
+    app.job_queue.run_repeating(send_heart, interval=60, first=5)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("menu", menu_command))
     app.add_handler(CallbackQueryHandler(handle_callback))
